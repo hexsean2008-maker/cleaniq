@@ -10,12 +10,16 @@ const { declarations: bookingTools, makeToolRunner } = require("./aiTools");
 const { toE164UK, findCustomerByPhone } = require("./phone");
 
 const HISTORY_LIMIT = 20;
-const MAX_AI_REPLIES_PER_HOUR = 30; // per conversation — protects the AI quota from spam/loops
+// Per conversation — protects the AI quota from spam/loops. Override with AI_HOURLY_REPLY_LIMIT.
+const hourlyReplyLimit = () => Number(process.env.AI_HOURLY_REPLY_LIMIT) || 30;
 // Across all chats; protects prepaid AI credit. Override with AI_DAILY_REPLY_LIMIT in .env.
 const dailyReplyLimit = () => Number(process.env.AI_DAILY_REPLY_LIMIT) || 200;
 const HANDOFF_TEXT = "Thanks for your message! A member of our team will reply here as soon as possible.";
 const AI_ERROR_TEXT = "Sorry, I'm having a technical issue right now. Please try again in a few minutes, or a member of our team will reply here soon.";
 const TEXT_ONLY_TEXT = "Sorry, I can only read text messages at the moment. Could you type your question?";
+
+// Automatic messages cost no AI credit, so they don't count towards the reply limits.
+const realAiReply = () => ({ role: "ai", text: { $nin: [HANDOFF_TEXT, AI_ERROR_TEXT, TEXT_ONLY_TEXT] } });
 
 // Same lookup as the SMS service: admin-entered SystemSetting first, then .env.
 async function getTwilioCredentials() {
@@ -92,10 +96,10 @@ async function replyOnce(conversationId, { ai = generateReply, send = sendWhatsA
 
   const recentAiReplies = await AiMessage.countDocuments({
     conversation: conversation._id,
-    role: "ai",
+    ...realAiReply(),
     createdAt: { $gte: new Date(Date.now() - 60 * 60 * 1000) },
   });
-  if (recentAiReplies >= MAX_AI_REPLIES_PER_HOUR) {
+  if (recentAiReplies >= hourlyReplyLimit()) {
     console.warn(`[whatsapp] AI reply limit reached for ${conversation.phone}; handing to staff`);
     await AiConversation.updateOne({ _id: conversation._id }, { $set: { status: "human", needsAttention: true } });
     await sendAndRecord(conversation, "ai", HANDOFF_TEXT, { send });
@@ -103,7 +107,7 @@ async function replyOnce(conversationId, { ai = generateReply, send = sendWhatsA
   }
 
   const repliesToday = await AiMessage.countDocuments({
-    role: "ai",
+    ...realAiReply(),
     createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
   });
   if (repliesToday >= dailyReplyLimit()) {
