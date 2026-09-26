@@ -38,6 +38,10 @@ test("booking rules only when the channel can book", () => {
   assert.match(withTools, /create_booking with customerConfirmed true/);
   assert.match(withTools, /ask for ALL missing required details in ONE message/);
   assert.match(withTools, /Do not ask for bedrooms, bathrooms, pets or access notes/);
+  assert.match(withTools, /Never ask one question per message/);
+  assert.match(withTools, /Example of the pattern to follow/);
+  // the short-reply rule must not fight the booking list
+  assert.match(withTools, /Exception: when collecting booking details or sending a booking summary, use a short numbered list/);
   const without = buildInstructions({ channel: "voice", settings, knowledge, services, now });
   assert.doesNotMatch(without, /create_booking/);
   assert.match(without, /You cannot confirm bookings/);
