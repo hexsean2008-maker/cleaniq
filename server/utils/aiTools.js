@@ -92,6 +92,12 @@ async function getAvailability(date, now = new Date()) {
 
 // ── Booking (same payload as the admin form's handleSubmit) ─────────────────────────────
 const NAME_RE = /^[A-Za-z][A-Za-z' -]+$/;
+// UK postcode, e.g. M1 1AA, M14 5TQ, SW1A 1AA
+const POSTCODE_RE = /\b([A-Z]{1,2}\d[A-Z\d]?)\s*(\d[A-Z]{2})\b/i;
+const findPostcode = (text) => {
+  const m = String(text || "").match(POSTCODE_RE);
+  return m ? `${m[1]} ${m[2]}`.toUpperCase() : "";
+};
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 async function uniqueBookingId() {
@@ -103,13 +109,14 @@ async function uniqueBookingId() {
 }
 
 async function createAiBooking(args, ctx) {
+  const postcode = findPostcode(args.postcode) || findPostcode(args.address);
   const problems = [];
   if (!args.customerConfirmed) problems.push("the customer has not explicitly confirmed the summary and price yet");
   if (!NAME_RE.test(args.firstName || "") || args.firstName.trim().length < 2) problems.push("first name (letters only)");
   if (!NAME_RE.test(args.lastName || "") || args.lastName.trim().length < 2) problems.push("last name (letters only)");
   if (!EMAIL_RE.test(args.email || "")) problems.push("a valid email address");
   if (!args.address || args.address.trim().length < 5) problems.push("the full address");
-  if (!args.postcode || args.postcode.trim().length < 5) problems.push("the postcode");
+  if (!postcode) problems.push("a valid UK postcode");
   if (!SLOTS.some((s) => s.value === args.timeSlot) && args.timeSlot !== "Flexible") problems.push("a time slot");
   if (args.timeSlot === "Flexible" && !args.preferredTime) problems.push("the preferred time for a flexible slot");
   const frequency = FREQUENCIES.includes(args.frequency) ? args.frequency : "Once";
@@ -144,7 +151,7 @@ async function createAiBooking(args, ctx) {
     service: quote.service,
     details: {
       address: args.address.trim(),
-      postcode: args.postcode.trim().toUpperCase(),
+      postcode,
       frequency,
       duration: quote.hours,
       extras: quote.extras.map((e) => ({ name: e.name, qty: e.qty, rate: e.unitPrice })),
@@ -239,7 +246,7 @@ const declarations = [
         timeSlot: { type: "string", enum: ["Morning", "Afternoon", "Evening", "Flexible"] },
         preferredTime: { type: "string", description: "Only for Flexible, e.g. 10:30am" },
         address: { type: "string", description: "Street address including house/flat number and town" },
-        postcode: { type: "string" },
+        postcode: { type: "string", description: "Optional if the address already includes the postcode" },
         frequency: { type: "string", enum: FREQUENCIES },
         bedrooms: { type: "integer" },
         bathrooms: { type: "integer" },
@@ -247,7 +254,7 @@ const declarations = [
         notes: { type: "string", description: "Access instructions or special requests" },
         customerConfirmed: { type: "boolean", description: "True only if the customer explicitly said yes to the summary and total." },
       },
-      required: ["firstName", "lastName", "email", "service", "hours", "date", "timeSlot", "address", "postcode", "customerConfirmed"],
+      required: ["firstName", "lastName", "email", "service", "hours", "date", "timeSlot", "address", "customerConfirmed"],
     },
   },
 ];

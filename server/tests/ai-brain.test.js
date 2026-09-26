@@ -36,6 +36,8 @@ test("booking rules only when the channel can book", () => {
   const withTools = buildInstructions({ channel: "whatsapp", settings, knowledge, services, now, canBook: true });
   assert.match(withTools, /call get_quote/);
   assert.match(withTools, /create_booking with customerConfirmed true/);
+  assert.match(withTools, /ask for ALL missing required details in ONE message/);
+  assert.match(withTools, /Do not ask for bedrooms, bathrooms, pets or access notes/);
   const without = buildInstructions({ channel: "voice", settings, knowledge, services, now });
   assert.doesNotMatch(without, /create_booking/);
   assert.match(without, /You cannot confirm bookings/);
