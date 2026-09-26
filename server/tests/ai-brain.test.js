@@ -25,10 +25,19 @@ test("includes live prices in pounds; rooms are not listed as a charge", () => {
   assert.match(p, /Rooms \(bedrooms, bathrooms, etc\.\) are not charged separately/);
 });
 
+test("forbids made-up hour estimates on every channel", () => {
+  for (const channel of ["whatsapp", "voice"]) {
+    const p = buildInstructions({ channel, settings, knowledge, services, now });
+    assert.match(p, /Never state typical, average or estimated hours/);
+  }
+});
+
 test("booking rules only when the channel can book", () => {
   const withTools = buildInstructions({ channel: "whatsapp", settings, knowledge, services, now, canBook: true });
   assert.match(withTools, /call get_quote/);
   assert.match(withTools, /create_booking with customerConfirmed true/);
+  assert.match(withTools, /ask for ALL missing required details in ONE message/);
+  assert.match(withTools, /Do not ask for bedrooms, bathrooms, pets or access notes/);
   const without = buildInstructions({ channel: "voice", settings, knowledge, services, now });
   assert.doesNotMatch(without, /create_booking/);
   assert.match(without, /You cannot confirm bookings/);

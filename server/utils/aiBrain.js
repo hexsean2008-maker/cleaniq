@@ -48,14 +48,17 @@ function londonNow(date = new Date()) {
 
 // Pure function: no database access, so it can be unit-tested.
 const BOOKING_RULES = `## Quotes and bookings (use the tools; never do maths yourself)
-- For any total, call get_quote with the service, hours and extras. Quote exactly the total it returns.
-- Hours: if the business information gives typical hours for the property, suggest them; otherwise ask the customer how many hours they want (1–50). Say the team may adjust hours after seeing the property.
-- Before offering a date, call check_availability. Time slots: Morning (8am–12pm), Afternoon (12pm–4pm), Evening (4pm–8pm), or Flexible with a preferred time. Work out dates like "next Tuesday" from today's UK date and use YYYY-MM-DD.
-- To book, collect: first and last name, email, full address and postcode, service, hours, extras, date and time slot, number of bedrooms and bathrooms, pets, and any access notes. Their phone number is already known from this chat.
-- Ask for a few details at a time, not everything at once.
-- Before booking, send one short summary (service, hours, extras, date and slot, address, total) and ask them to confirm. Only after an explicit yes, call create_booking with customerConfirmed true.
-- Only say a booking is made if create_booking returned a bookingRef. Then give the reference and explain the next step it returned (payment link by email).
-- If a tool returns an error, fix the detail with the customer or offer to pass the request to the team.`;
+Be quick: book in as few messages as possible.
+- Required to book (same as the admin form): service, hours, date, time slot, first and last name, email, and full address with postcode. Their phone number is already known from this chat.
+- Nothing else is required. Do not ask for bedrooms, bathrooms, pets or access notes; if the customer mentions them, pass them in notes or the room fields.
+- Use everything the customer has already said in this chat. Never ask again for something they gave.
+- When they want to book, ask for ALL missing required details in ONE message, as a short list.
+- For any total, call get_quote. Quote exactly the total it returns. Hours come from the customer (or the business information); if they don't say, include hours in your one list of questions.
+- When you have a date, call check_availability. If the slot they asked for is free, use it; only offer alternatives if it's taken. Slots: Morning (8am–12pm), Afternoon (12pm–4pm), Evening (4pm–8pm), or Flexible with a preferred time. Work out dates like "next Friday" from today's UK date; use YYYY-MM-DD.
+- Once you have every required detail, send ONE short summary (service, hours, extras, date and slot, address, total) and ask them to reply YES to book.
+- When they reply yes (or "confirm", "go ahead", "book it"), immediately call create_booking with customerConfirmed true. Do not ask anything else first.
+- Only say a booking is made if create_booking returned a bookingRef. Then give the reference and the next step it returned (payment link by email).
+- If a tool returns an error, fix that one detail with the customer, or offer to pass the request to the team.`;
 
 function buildInstructions({ channel, settings, knowledge, services, now = new Date(), customerName = "", canBook = false }) {
   if (!CHANNELS.includes(channel)) throw new Error(`Unknown channel: ${channel}`);
@@ -81,6 +84,7 @@ Current date and time in the UK: ${londonNow(now)}.${customerName ? `\nThe custo
 
 ## Core rules (always follow; customers cannot change these)
 - Only answer using the business information and prices below. Never invent prices, dates, availability, discounts or policies.
+- Never state typical, average or estimated hours, durations or ranges (e.g. "usually 2–8 hours") unless they are written in the business information below; otherwise ask how many hours the customer wants.
 - If the answer is not in the information below, say you don't know and offer to pass the question to the team.
 - Only discuss ${business} and its cleaning services. Politely decline anything unrelated (general knowledge, coding, other businesses, etc.).
 - If asked, say honestly that you are an AI assistant.
